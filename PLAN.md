@@ -3,6 +3,8 @@
 Implementation plan for `SPEC.md`, following `CLAUDE.md`. There are five vertical slices.
 Each slice is implemented, reviewed, tested and committed on its own.
 
+**Status: all five slices done (131 tests passing).**
+
 > **Scope change (2026-11-20, time-boxed):** no database (H2/JPA/Flyway dropped), a `ConcurrentHashMap`
 > repository in main code, UTC for "today". The business time zone, 415 and the breed character pattern
 > moved to SPEC.md §9 "Out of scope / next steps".
@@ -117,7 +119,7 @@ Goal: well-formed requests that break a rule return 422 (first broken rule only)
 
 ---
 
-## Slice 4 — Input validation and strict JSON (400)
+## Slice 4 — Input validation and strict JSON (400) ✅ done
 
 Goal: malformed or wrongly shaped requests return 400 (listing every invalid field), and the service is never called.
 
@@ -152,7 +154,7 @@ Goal: malformed or wrongly shaped requests return 400 (listing every invalid fie
 
 ---
 
-## Slice 5 — End-to-end error flows and run instructions
+## Slice 5 — End-to-end error flows and run instructions ✅ done
 
 Goal: prove that the full application wires validation, rules and errors together,
 and make it easy for the reviewers to run the curl requests.
@@ -179,37 +181,37 @@ Every acceptance criterion from SPEC.md §7 and the slice(s) whose tests cover i
 | AC | Criterion (short) | Slice(s) |
 |----|-------------------|----------|
 | 1 | 201 + absolute `Location` + full body | 1 ✅ |
-| 2 | Worked-example premiums | 1 ✅ (base price), 2 ✅, 5 |
+| 2 | Worked-example premiums | 1 ✅ (base price), 2 ✅, 5 ✅ |
 | 3 | No breed → no breed factor | 2 ✅ |
 | 4 | High-risk breed matching | 2 ✅ |
 | 5 | `validUntil` = `createdAt` + 30 days | 1 ✅ |
 | 6 | Round once, HALF_UP, scale 2 | 2 ✅ |
-| 7 | 8-week minimum boundary | 3 ✅, 5 |
+| 7 | 8-week minimum boundary | 3 ✅, 5 ✅ |
 | 8 | 14-year maximum boundary | 3 ✅ |
 | 9 | Future birthDate → 422 | 3 ✅ |
 | 10 | Age-factor boundaries | 2 ✅ |
 | 11 | GET existing → 200 | 1 ✅ |
 | 12 | GET unknown → 404 | 1 ✅ |
-| 13 | Non-UUID id → 400 | 4 |
-| 14 | Malformed JSON → 400 | 4, 5 |
-| 15 | Missing/null fields → 400 | 4 |
-| 16 | Wrong types → 400 | 4 |
-| 17 | Unknown enums → 400 | 4 |
-| 18 | Bad dates → 400 | 4 |
-| 19 | Breed length | 4 |
-| 20 | Deductible not allowed → 422; `100.00` → `100` | 3 ✅, 5 |
+| 13 | Non-UUID id → 400 | 4 ✅ |
+| 14 | Malformed JSON → 400 | 4 ✅, 5 ✅ |
+| 15 | Missing/null fields → 400 | 4 ✅ |
+| 16 | Wrong types → 400 | 4 ✅ |
+| 17 | Unknown enums → 400 | 4 ✅ |
+| 18 | Bad dates → 400 | 4 ✅ |
+| 19 | Breed length | 4 ✅ |
+| 20 | Deductible not allowed → 422; `100.00` → `100` | 3 ✅, 5 ✅ |
 | 21 | Country not supported (incl. `"us"`) → 422 | 3 ✅ |
-| 22 | Nothing stored on rejection | 3 ✅, 4, 5 |
-| 23 | ProblemDetail, no stack trace | 1 ✅ (500), 4, 5 |
+| 22 | Nothing stored on rejection | 3 ✅, 4 ✅, 5 ✅ |
+| 23 | ProblemDetail, no stack trace | 1 ✅ (500), 4 ✅, 5 ✅ |
 | 24 | Concurrent saves + duplicate id | 1 ✅ |
 | 25 | ~~DB mapping round trip~~ | out of scope (SPEC §9) |
 | 26 | `status` ACTIVE / EXPIRED | 1 ✅ |
 | 27 | "Today" is the UTC date | 2 ✅ |
 | 28 | ~~Wrong Content-Type → 415~~ | out of scope (SPEC §9) |
-| 29 | 400 lists all fields; 422 first rule | 3 ✅ (422), 4 (400) |
+| 29 | 400 lists all fields; 422 first rule | 3 ✅ (422), 4 ✅ (400) |
 | 30 | Breed trimmed | 2 ✅ |
-| 31 | Unknown fields ignored | 1 ✅, 4 |
+| 31 | Unknown fields ignored | 1 ✅, 4 ✅ |
 
 ## Risks to check during implementation
 
-1. **Jackson 3 defaults**: coercion settings for slice 4. Also, unknown properties must stay ignored (AC31 guards this).
+1. ~~**Jackson 3 defaults**~~: resolved in slice 4 with coercion configs in `JacksonConfig`; unknown properties stay ignored (AC31).
