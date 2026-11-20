@@ -100,6 +100,19 @@ class QuoteControllerTest {
     }
 
     @Test
+    void createWithoutBreedPassesNullBreedToService() throws Exception {
+        QuoteRequest withoutBreed = new QuoteRequest(PetType.DOG, null, LocalDate.of(2023, 5, 10),
+                Plan.PREMIUM, new BigDecimal("250"), "US");
+        given(quoteService.create(withoutBreed)).willReturn(VIEW);
+        String bodyWithoutBreed = VALID_BODY.replace("\"breed\": \"Pug\",", "");
+
+        mockMvc.perform(post("/quotes").contentType(MediaType.APPLICATION_JSON).content(bodyWithoutBreed))
+                .andExpect(status().isCreated());
+
+        verify(quoteService).create(withoutBreed);
+    }
+
+    @Test
     void getExistingQuoteReturns200WithBody() throws Exception {
         given(quoteService.get(ID)).willReturn(VIEW);
 

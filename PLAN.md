@@ -60,7 +60,7 @@ For now the premium is just the plan's base price. Slice 2 adds the factors.
 
 ---
 
-## Slice 2 — Pricing factors
+## Slice 2 — Pricing factors ✅ done
 
 Goal: the premium follows SPEC §4.1 exactly, with "today" as the UTC date (§4.0).
 
@@ -179,15 +179,15 @@ Every acceptance criterion from SPEC.md §7 and the slice(s) whose tests cover i
 | AC | Criterion (short) | Slice(s) |
 |----|-------------------|----------|
 | 1 | 201 + absolute `Location` + full body | 1 ✅ |
-| 2 | Worked-example premiums | 1 ✅ (base price), 2, 5 |
-| 3 | No breed → no breed factor | 2 |
-| 4 | High-risk breed matching | 2 |
+| 2 | Worked-example premiums | 1 ✅ (base price), 2 ✅, 5 |
+| 3 | No breed → no breed factor | 2 ✅ |
+| 4 | High-risk breed matching | 2 ✅ |
 | 5 | `validUntil` = `createdAt` + 30 days | 1 ✅ |
-| 6 | Round once, HALF_UP, scale 2 | 2 |
+| 6 | Round once, HALF_UP, scale 2 | 2 ✅ |
 | 7 | 8-week minimum boundary | 3, 5 |
 | 8 | 14-year maximum boundary | 3 |
 | 9 | Future birthDate → 422 | 3 |
-| 10 | Age-factor boundaries | 2 |
+| 10 | Age-factor boundaries | 2 ✅ |
 | 11 | GET existing → 200 | 1 ✅ |
 | 12 | GET unknown → 404 | 1 ✅ |
 | 13 | Non-UUID id → 400 | 4 |
@@ -204,10 +204,10 @@ Every acceptance criterion from SPEC.md §7 and the slice(s) whose tests cover i
 | 24 | Concurrent saves + duplicate id | 1 ✅ |
 | 25 | ~~DB mapping round trip~~ | out of scope (SPEC §9) |
 | 26 | `status` ACTIVE / EXPIRED | 1 ✅ |
-| 27 | "Today" is the UTC date | 2 |
+| 27 | "Today" is the UTC date | 2 ✅ |
 | 28 | ~~Wrong Content-Type → 415~~ | out of scope (SPEC §9) |
 | 29 | 400 lists all fields; 422 first rule | 3 (422), 4 (400) |
-| 30 | Breed trimmed | 2 |
+| 30 | Breed trimmed | 2 ✅ |
 | 31 | Unknown fields ignored | 1 ✅, 4 |
 
 ## Risks to check during implementation

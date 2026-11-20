@@ -1,5 +1,6 @@
 package com.hila.interviewprep.service;
 
+import com.hila.interviewprep.config.PricingConfig;
 import com.hila.interviewprep.config.QuoteProperties;
 import com.hila.interviewprep.domain.PetType;
 import com.hila.interviewprep.domain.Plan;
@@ -33,7 +34,8 @@ class QuoteServiceTest {
     private final QuoteService service = serviceAt(NOW);
 
     private QuoteService serviceAt(Instant instant) {
-        return new QuoteService(repository, Clock.fixed(instant, ZoneOffset.UTC), PROPERTIES);
+        return new QuoteService(repository, Clock.fixed(instant, ZoneOffset.UTC), PROPERTIES,
+                new PremiumCalculator(new PricingConfig().pricingRules()));
     }
 
     /** A 6-month-old pet with no breed and deductible 100, so the premium equals the base price. */
@@ -122,5 +124,48 @@ class QuoteServiceTest {
         QuoteView fetched = serviceAt(Instant.parse(readAt)).get(created.id());
 
         assertThat(fetched.status()).isEqualTo(expected);
+    }
+
+    @Test
+    void workedExampleThroughTheService() {
+        // PREMIUM, 3 years old on 2026-11-19, Pug, deductible 250: 35 x 1.2 x 1.3 x 0.9
+        QuoteRequest request = new QuoteRequest(PetType.DOG, "Pug", LocalDate.of(2023, 11, 19),
+                Plan.PREMIUM, new BigDecimal("250"), "US");
+
+        assertThat(service.create(request).quote().monthlyPremium()).isEqualByComparingTo("49.14");
+    }
+
+    @Test
+    void noBreedMeansNoBreedFactor() {
+        // PREMIUM, 10 years old, no breed, deductible 100: 35 x 1.6
+        QuoteRequest request = new QuoteRequest(PetType.CAT, null, LocalDate.of(2016, 11, 19),
+                Plan.PREMIUM, new BigDecimal("100"), "US");
+
+        Quote quote = service.create(request).quote();
+
+        assertThat(quote.breed()).isNull();
+        assertThat(quote.monthlyPremium()).isEqualByComparingTo("56.00");
+    }
+
+    @Test
+    void breedIsStoredAndReturnedTrimmed() {
+        QuoteRequest request = new QuoteRequest(PetType.DOG, "  Pug ", LocalDate.of(2026, 5, 19),
+                Plan.BASIC, new BigDecimal("100"), "US");
+
+        Quote created = service.create(request).quote();
+
+        assertThat(created.breed()).isEqualTo("Pug");
+        assertThat(service.get(created.id()).quote().breed()).isEqualTo("Pug");
+        assertThat(created.monthlyPremium()).isEqualByComparingTo("26.00"); // still high-risk: 20 x 1.3
+    }
+
+    @Test
+    void todayIsTheUtcDate() {
+        // 03:00 UTC on Nov 20 is still Nov 19 in the US, but in UTC the pet has turned 1: 20 x 1.2
+        QuoteService earlyMorningUtc = serviceAt(Instant.parse("2026-11-20T03:00:00Z"));
+        QuoteRequest request = new QuoteRequest(PetType.DOG, null, LocalDate.of(2025, 11, 20),
+                Plan.BASIC, new BigDecimal("100"), "US");
+
+        assertThat(earlyMorningUtc.create(request).quote().monthlyPremium()).isEqualByComparingTo("24.00");
     }
 }
