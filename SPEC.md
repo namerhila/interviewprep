@@ -42,7 +42,7 @@ production-quality code and a thoughtful test suite.
 **Breed rules** (when present):
 - The value is trimmed, then stored and returned trimmed (`"  Pug "` → `"Pug"`).
 - Trimmed length is 1–50 characters.
-- Only English letters `A–Z a–z`, spaces, hyphens (`-`) and apostrophes (`'`). Accented letters (`"Löwchen"`) are rejected.
+- Character rules (which letters and symbols are allowed) are out of scope for now (§9).
 
 ## 3. Response
 
@@ -72,11 +72,11 @@ production-quality code and a thoughtful test suite.
 
 ## 4. Business rules
 
-### 4.0 Business time zone
+### 4.0 "Today"
 
-- Calendar-date rules (the pet's age) use **today's date in the business time zone**. The zone comes from the configurable property `quote.business-zone`, default `America/New_York`.
-- Timestamps (`createdAt`, `validUntil`) stay UTC instants, unaffected by the zone.
-- Example: at `2026-11-20T03:00Z` it is still `2026-11-19` in New York, so that's "today".
+- Calendar-date rules (the pet's age) use **today's date in UTC**, from the injected `Clock`.
+- Example: at `2026-11-20T03:00Z` "today" is `2026-11-20`, even though it is still the 19th in the US.
+- A configurable business time zone is a next step (§9).
 
 ### 4.1 Pricing
 The monthly premium is in USD. Start from the plan's base price, then multiply by every factor:
@@ -103,7 +103,7 @@ Worked examples:
 ### 4.2 Eligible age
 
 - We only quote pets aged **8 weeks to 14 years**, both ends inclusive. A pet is accepted on its 14th birthday and rejected from the next day.
-- Age is measured from `birthDate` to today in the business time zone (4.0).
+- Age is measured from `birthDate` to today in UTC (4.0).
 - The limits are configurable values, not hard-coded checks.
 - A `birthDate` in the future means the pet is under 8 weeks, so it is rejected.
 
@@ -120,7 +120,6 @@ Nothing is stored when a request fails.
 |--------|------|----------|
 | 400 Bad Request | The request is malformed or the wrong shape | invalid JSON; wrong JSON type (`"deductible": "250"`); unknown or wrongly cased enum value (`"BIRD"`, `"dog"`); missing/null required field; date that doesn't parse (`"2023-13-40"`, `"10/05/2023"`); breed breaks the breed rules; `id` in the path isn't a UUID |
 | 404 Not Found | Quote id is well-formed but doesn't exist | |
-| 415 Unsupported Media Type | `POST` body isn't `application/json` | `Content-Type: text/plain` |
 | 422 Unprocessable Entity | Well-formed input that breaks a business rule | country other than `US` (incl. `"us"`); deductible not in {100, 250, 500}; pet younger than 8 weeks or older than 14 years; future `birthDate` |
 | 500 Internal Server Error | Unexpected failure | generic message only |
 
@@ -136,11 +135,8 @@ Nothing is stored when a request fails.
   - Quotes store no customer identity.
   - Security can be added later as a Spring Security `SecurityFilterChain` in `config`, with no change to controllers or services. The README documents this.
   - No security code or dependency is added now.
-- **Storage:** H2 **file** database (`./data/quotes`) through Spring Data JPA, so quotes **survive restarts**. Delete `./data` to reset.
-  - Tests use an in-memory H2.
-  - The schema is managed by Flyway migrations.
-  - Switching to a real database (e.g. Postgres) must only need a driver and datasource config change, with no service changes.
-- **H2 web console:** enabled only with the `local` Spring profile, off by default.
+- **Storage:** thread-safe in-memory repository (`ConcurrentHashMap`) behind the `QuoteRepository` interface. Quotes are lost on restart.
+  - A database implementation can be added later without changing the service (§9).
 - No other features: no policy purchase, no quote updates or deletes, no listing.
 - Tech and conventions: see `CLAUDE.md`.
 
@@ -165,7 +161,7 @@ Nothing is stored when a request fails.
 | AC8 | Exactly 14 years old (on the 14th birthday) → accepted; one day older → 422 | Service (parameterized) |
 | AC9 | Future `birthDate` → 422 | Service |
 | AC10 | Age factor boundaries: day before 1st birthday ×1.0, on 1st birthday ×1.2, day before 8th birthday ×1.2, on 8th birthday ×1.6 | Service (parameterized) |
-| AC27 | "Today" uses the business zone: at `2026-11-20T03:00Z` a pet born `2025-11-20` is still under 1 year (×1.0) with `America/New_York`, but 1 year (×1.2) with zone `UTC` | Service |
+| AC27 | "Today" is the UTC date: at `2026-11-20T03:00Z` a pet born `2025-11-20` is 1 year old (×1.2) | Service |
 
 ### Get quote
 | # | Criterion | Test level |
@@ -183,19 +179,19 @@ Nothing is stored when a request fails.
 | AC16 | Wrong types (`"deductible": "250"`, `"petType": 1`, `"birthDate": 20230510`) → 400 | Controller (parameterized) |
 | AC17 | Unknown enum values (`petType: "BIRD"`, `plan: "GOLD"`, lowercase `"dog"`) → 400 | Controller (parameterized) |
 | AC18 | Bad dates (`"2023-02-30"`, `"2023-13-01"`, `"10/05/2023"`, `""`) → 400 | Controller (parameterized) |
-| AC19 | Breed: blank, 51+ chars, digits/symbols (`"Pug123"`, `"<script>"`), accented letters (`"Löwchen"`) → 400; exactly 50 chars, `"Shih-Tzu"`, `"Jack Russell"`, `"O'Malley"` → accepted | Controller (parameterized) |
+| AC19 | Breed: blank or longer than 50 characters after trimming → 400; exactly 50 characters (also with surrounding spaces) → accepted | Controller (parameterized) |
 | AC20 | Deductible not allowed (`0`, `-100`, `300`, `100.5`) → 422; `100.00` accepted, priced as 100 and returned as `100` | Service (parameterized) |
 | AC21 | Country not supported (`"IL"`, `"us"`, `"USA"`) → 422 | Service (parameterized) |
 | AC22 | After any rejected request nothing was stored | Service |
 | AC23 | Error responses are `ProblemDetail` with no stack trace | Controller |
-| AC28 | `Content-Type: text/plain` on POST → 415 ProblemDetail | Controller |
 | AC29 | A 400 with several invalid fields lists all of them in `errors`; a 422 with several broken rules reports only the first (order: country → deductible → age) | Controller (400) + Service (422) |
 
 ### Persistence and concurrency
 | # | Criterion | Test level |
 |---|-----------|-----------|
-| AC24 | Many concurrent creates → every quote gets a unique id and is retrievable | Repository (H2) |
-| AC25 | Flyway creates the schema and Hibernate validation passes; a stored quote reads back unchanged: premium and deductible keep scale 2, enums are stored as strings, timestamps match | Repository (`@DataJpaTest`) |
+| AC24 | Many concurrent saves → every quote is stored and retrievable; saving a duplicate id is rejected and keeps the original | Repository |
+
+AC25 (database mapping) and AC28 (415) moved to §9.
 
 ## 8. Decisions (resolved open questions)
 
@@ -208,20 +204,32 @@ Answered on 2026-11-20. These are reflected in the sections above.
 | 3 | Is `country` case-sensitive? | Yes: `"us"` → 422 |
 | 4 | GET of an expired quote | 200 with a computed `status` field: `ACTIVE` / `EXPIRED` |
 | 5 | Unknown `petType` / `plan` values | 400 (as `CLAUDE.md` says) |
-| 6 | Time zone for "today" | Configurable `quote.business-zone`, default `America/New_York`; timestamps stay UTC |
+| 6 | Time zone for "today" | ~~Configurable business zone~~ → **UTC** (scope change 2026-11-20; business zone is in §9) |
 | 7 | Deductible `100.00` in the response | Normalized to `100` |
 | 8 | Breed whitespace | Trimmed before storing and returning |
 | 9 | `Location` header | Absolute URL |
-| 10 | Wrong `Content-Type` | 415 ProblemDetail |
-| 11 | Breed characters | English letters only, plus space, `-`, `'` |
+| 10 | Wrong `Content-Type` | ~~415 ProblemDetail~~ → moved to §9 (scope change) |
+| 11 | Breed characters | ~~English letters only~~ → moved to §9 (scope change); only length is validated |
 | 12 | Several errors in one request | 400: list all invalid fields; 422: first broken rule |
-| 13 | Schema management | Flyway migrations |
-| 14 | H2 mode | File database (`./data`), survives restarts; tests use in-memory |
-| 15 | H2 web console | Only with the `local` profile |
+| 13 | Schema management | ~~Flyway~~ → moved to §9 (no database for now) |
+| 14 | H2 mode | ~~File database~~ → in-memory `ConcurrentHashMap` (scope change) |
+| 15 | H2 web console | ~~`local` profile~~ → moved to §9 (no database for now) |
 | 16 | Authentication preparation | Design only: stateless, no customer data, README explains where Spring Security plugs in; no code or dependency now |
+
+## 9. Out of scope / next steps
+
+Dropped from the current time-boxed scope on 2026-11-20. Each item is ready to pick up later.
+
+| Item | What it would add | Notes |
+|------|-------------------|-------|
+| **Database** | H2 (then Postgres) through Spring Data JPA, Flyway migrations, H2 console under a `local` profile | Add a JPA implementation of `QuoteRepository`; the service doesn't change. Previously planned AC25: the mapping round trip (money scale 2, enums as strings, timestamps) |
+| **Business time zone** | `quote.business-zone` (e.g. `America/New_York`) used for "today" instead of UTC | Fixes the evening edge case where a US pet's age is one day ahead |
+| **415 Unsupported Media Type** | A wrong `Content-Type` returns 415 `ProblemDetail`, with a test | Previously planned AC28 |
+| **Breed character pattern** | Only `A–Z a–z`, space, `-`, `'`; reject digits, symbols, accented letters (`"Pug123"`, `"<script>"`, `"Löwchen"`) → 400 | Today only length (1–50 after trimming) is validated |
 
 ## Log
 
 - **2026-11-19** — Reorganized `SPEC.md` into overview, request/response contract, business rules, error mapping, constraints, numbered acceptance criteria mapped to tests, and open questions. Files: `SPEC.md` (documentation only). Tests: none run (no code changed).
 - **2026-11-20** — Switched persistence from a `ConcurrentHashMap` repository to H2 in-memory through Spring Data JPA, behind the same `QuoteRepository` interface. Files: `CLAUDE.md` (persistence and testing rules), `SPEC.md` (§6 storage, AC24 test level, new AC25 for the mapping round trip), `PLAN.md` (slice 1 files, tests and dependencies; repository test level; DB open questions). Tests: none run (documentation only).
-- **2026-11-20** — Resolved all 16 open questions (§8). Added the business time zone (§4.0), a computed `status` field, 415 handling, multi-error rules, an English-only breed rule, Flyway, the H2 file database with a `local`-profile console, and auth design notes; new AC26–AC31. Files: `SPEC.md` (contract, rules, errors, constraints, ACs, decisions), `PLAN.md` (slices updated with the new tests, files and dependencies; open questions replaced by decisions), `CLAUDE.md` (persistence, time zone and testing rules). Tests: none run (documentation only).
+- **2026-11-20** — Resolved all 16 open questions (§8). Added the business time zone (§4.0), a computed `status` field, 415 handling, multi-error rules, an English-only breed rule, Flyway, the H2 file database with a `local`-profile console, and auth design notes; new AC26–AC31. Files: `SPEC.md` (contract, rules, errors, constraints, ACs, decisions), `PLAN.md` (slices updated with the new tests, files and dependencies; open questions replaced by decisions), `CLAUDE.md` (persistence, time zone and testing rules). Tests: none run (documentation only).- **2026-11-20** — Scope change (time-boxed): dropped H2/JPA/Flyway, switched "today" to UTC, and moved the database, business time zone, 415 and breed character pattern to the new §9 "Out of scope / next steps" (AC25 and AC28 moved there; AC19, AC24 and AC27 reworded). Files: `SPEC.md`, `CLAUDE.md` (persistence back to in-memory, UTC date rule, repository test rule), `PLAN.md` (scope note, slices 2–5 and AC table updated). Tests: no code changed in this step.
+- **2026-11-20** — **Slice 1 implemented**: `POST /quotes` and `GET /quotes/{id}` end to end, premium = plan base price, computed `status`, absolute `Location`, 404 and generic 500 as `ProblemDetail`. Covers AC1, AC5, AC11, AC12, AC24, AC26, AC31 (AC2 partly). Files (main, all new except the last two): `domain/` `PetType`, `Plan`, `QuoteStatus`, `Quote`, `QuoteView`, `QuoteRequest`; `repository/` `QuoteRepository`, `InMemoryQuoteRepository` (`ConcurrentHashMap`, `putIfAbsent`); `service/QuoteService`; `config/` `ClockConfig`, `QuoteProperties`; `dto/` `CreateQuoteRequest`, `QuoteResponse`; `controller/QuoteController`; `error/` `QuoteNotFoundException`, `GlobalExceptionHandler`; `InterviewprepApplication` (`@ConfigurationPropertiesScan`); `application.properties` (port, validity). Tests (new): `QuoteServiceTest` (12), `InMemoryQuoteRepositoryTest` (4), `QuoteControllerTest` (5), `QuoteApiIntegrationTest` (2); existing `InterviewprepApplicationTests` unchanged. `./mvnw test`: **24 run, 0 failures, 0 errors, 0 skipped**. No dependencies added.
