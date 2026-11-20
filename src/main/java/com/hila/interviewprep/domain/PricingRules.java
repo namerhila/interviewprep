@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,11 +48,21 @@ public record PricingRules(
 
     /** Matches by value, so 100 and 100.00 are the same deductible. */
     public BigDecimal deductibleFactor(BigDecimal deductible) {
-        return deductibleFactors.entrySet().stream()
-                .filter(entry -> entry.getKey().compareTo(deductible) == 0)
-                .findFirst()
-                .map(Map.Entry::getValue)
+        return supportedDeductible(deductible)
+                .map(deductibleFactors::get)
                 .orElseThrow(() -> new IllegalArgumentException("No factor for deductible " + deductible));
+    }
+
+    /** The allowed deductible equal in value to {@code deductible} (100.00 gives 100), if there is one. */
+    public Optional<BigDecimal> supportedDeductible(BigDecimal deductible) {
+        return deductibleFactors.keySet().stream()
+                .filter(allowed -> allowed.compareTo(deductible) == 0)
+                .findFirst();
+    }
+
+    /** The allowed deductibles, ascending. They are the keys of the deductible-factor table. */
+    public List<BigDecimal> allowedDeductibles() {
+        return deductibleFactors.keySet().stream().sorted().toList();
     }
 
     private static String normalize(String breed) {

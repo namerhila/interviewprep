@@ -4,6 +4,7 @@ import com.hila.interviewprep.config.PricingConfig;
 import com.hila.interviewprep.config.QuoteProperties;
 import com.hila.interviewprep.domain.PetType;
 import com.hila.interviewprep.domain.Plan;
+import com.hila.interviewprep.domain.PricingRules;
 import com.hila.interviewprep.domain.Quote;
 import com.hila.interviewprep.domain.QuoteRequest;
 import com.hila.interviewprep.domain.QuoteStatus;
@@ -19,6 +20,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
@@ -28,14 +30,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class QuoteServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-11-19T10:00:00Z");
-    private static final QuoteProperties PROPERTIES = new QuoteProperties(Duration.ofDays(30));
+    private static final QuoteProperties PROPERTIES =
+            new QuoteProperties(Duration.ofDays(30), Period.ofWeeks(8), Period.ofYears(14));
 
     private final InMemoryQuoteRepository repository = new InMemoryQuoteRepository();
     private final QuoteService service = serviceAt(NOW);
 
     private QuoteService serviceAt(Instant instant) {
+        PricingRules rules = new PricingConfig().pricingRules();
         return new QuoteService(repository, Clock.fixed(instant, ZoneOffset.UTC), PROPERTIES,
-                new PremiumCalculator(new PricingConfig().pricingRules()));
+                new PremiumCalculator(rules), new QuoteValidator(PROPERTIES, rules));
     }
 
     /** A 6-month-old pet with no breed and deductible 100, so the premium equals the base price. */

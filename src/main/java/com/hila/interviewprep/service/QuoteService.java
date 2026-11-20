@@ -17,24 +17,27 @@ import java.util.UUID;
 @Service
 public class QuoteService {
 
-    private static final String CURRENCY = "USD";
-
     private final QuoteRepository repository;
     private final Clock clock;
     private final QuoteProperties properties;
     private final PremiumCalculator premiumCalculator;
+    private final QuoteValidator validator;
 
     public QuoteService(QuoteRepository repository, Clock clock, QuoteProperties properties,
-                        PremiumCalculator premiumCalculator) {
+                        PremiumCalculator premiumCalculator, QuoteValidator validator) {
         this.repository = repository;
         this.clock = clock;
         this.properties = properties;
         this.premiumCalculator = premiumCalculator;
+        this.validator = validator;
     }
 
-    public QuoteView create(QuoteRequest request) {
+    /** Validates the business rules first, so a rejected request never prices or stores anything. */
+    public QuoteView create(QuoteRequest input) {
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        QuoteValidator.ValidRequest valid = validator.validate(input, today);
+        QuoteRequest request = valid.request();
         Quote quote = new Quote(
                 UUID.randomUUID(),
                 request.petType(),
@@ -42,9 +45,9 @@ public class QuoteService {
                 request.birthDate(),
                 request.plan(),
                 request.deductible(),
-                request.country(),
+                valid.country().name(),
                 premiumCalculator.calculate(request, today),
-                CURRENCY,
+                valid.country().currency(),
                 now,
                 now.plus(properties.validity()));
         repository.save(quote);

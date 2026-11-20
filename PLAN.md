@@ -86,7 +86,7 @@ Goal: the premium follows SPEC §4.1 exactly, with "today" as the UTC date (§4.
 
 ---
 
-## Slice 3 — Business-rule rejections (422)
+## Slice 3 — Business-rule rejections (422) ✅ done
 
 Goal: well-formed requests that break a rule return 422 (first broken rule only), and nothing is stored.
 
@@ -184,9 +184,9 @@ Every acceptance criterion from SPEC.md §7 and the slice(s) whose tests cover i
 | 4 | High-risk breed matching | 2 ✅ |
 | 5 | `validUntil` = `createdAt` + 30 days | 1 ✅ |
 | 6 | Round once, HALF_UP, scale 2 | 2 ✅ |
-| 7 | 8-week minimum boundary | 3, 5 |
-| 8 | 14-year maximum boundary | 3 |
-| 9 | Future birthDate → 422 | 3 |
+| 7 | 8-week minimum boundary | 3 ✅, 5 |
+| 8 | 14-year maximum boundary | 3 ✅ |
+| 9 | Future birthDate → 422 | 3 ✅ |
 | 10 | Age-factor boundaries | 2 ✅ |
 | 11 | GET existing → 200 | 1 ✅ |
 | 12 | GET unknown → 404 | 1 ✅ |
@@ -197,16 +197,16 @@ Every acceptance criterion from SPEC.md §7 and the slice(s) whose tests cover i
 | 17 | Unknown enums → 400 | 4 |
 | 18 | Bad dates → 400 | 4 |
 | 19 | Breed length | 4 |
-| 20 | Deductible not allowed → 422; `100.00` → `100` | 3, 5 |
-| 21 | Country not supported (incl. `"us"`) → 422 | 3 |
-| 22 | Nothing stored on rejection | 3, 4, 5 |
+| 20 | Deductible not allowed → 422; `100.00` → `100` | 3 ✅, 5 |
+| 21 | Country not supported (incl. `"us"`) → 422 | 3 ✅ |
+| 22 | Nothing stored on rejection | 3 ✅, 4, 5 |
 | 23 | ProblemDetail, no stack trace | 1 ✅ (500), 4, 5 |
 | 24 | Concurrent saves + duplicate id | 1 ✅ |
 | 25 | ~~DB mapping round trip~~ | out of scope (SPEC §9) |
 | 26 | `status` ACTIVE / EXPIRED | 1 ✅ |
 | 27 | "Today" is the UTC date | 2 ✅ |
 | 28 | ~~Wrong Content-Type → 415~~ | out of scope (SPEC §9) |
-| 29 | 400 lists all fields; 422 first rule | 3 (422), 4 (400) |
+| 29 | 400 lists all fields; 422 first rule | 3 ✅ (422), 4 (400) |
 | 30 | Breed trimmed | 2 ✅ |
 | 31 | Unknown fields ignored | 1 ✅, 4 |
 

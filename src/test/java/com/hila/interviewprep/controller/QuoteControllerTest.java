@@ -6,6 +6,7 @@ import com.hila.interviewprep.domain.Quote;
 import com.hila.interviewprep.domain.QuoteRequest;
 import com.hila.interviewprep.domain.QuoteStatus;
 import com.hila.interviewprep.domain.QuoteView;
+import com.hila.interviewprep.error.BusinessRuleException;
 import com.hila.interviewprep.error.QuoteNotFoundException;
 import com.hila.interviewprep.service.QuoteService;
 import org.junit.jupiter.api.Test;
@@ -135,6 +136,18 @@ class QuoteControllerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.title").value("Quote not found"))
                 .andExpect(jsonPath("$.detail").value(containsString(unknown.toString())));
+    }
+
+    @Test
+    void businessRuleViolationReturns422ProblemDetail() throws Exception {
+        given(quoteService.create(any())).willThrow(new BusinessRuleException("Country 'IL' is not supported"));
+
+        mockMvc.perform(post("/quotes").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(jsonPath("$.title").value("Business rule violation"))
+                .andExpect(jsonPath("$.detail").value("Country 'IL' is not supported"));
     }
 
     @Test
