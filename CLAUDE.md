@@ -11,9 +11,15 @@ Java 21 · Spring Boot 4 · Maven wrapper.
 - Package by layer under `com.hila.interviewprep`: `controller`, `service`, `repository`, `dto`, `domain`, `error`, `config`.
 - Flow: Controller -> Service -> Repository interface. Controllers only map HTTP <-> DTOs and call the service.
 - Request/response DTOs are records and never leave the controller layer. Services work with domain objects.
-- Persistence: in-memory, thread-safe repository implementations (`ConcurrentHashMap`, atomic operations). No database dependency. A JPA/Postgres implementation must be addable without changing services.
+- Persistence: H2 file database (`./data`, gitignored) through Spring Data JPA. Tests use an in-memory H2.
+  - Services depend only on the `QuoteRepository` interface, which takes and returns domain objects. JPA entities and Spring Data interfaces stay inside `repository` and never reach the service or the controller.
+  - Switching to Postgres must only need a driver and datasource config change, with no service changes.
+  - Schema changes are Flyway migrations in `src/main/resources/db/migration` (`V<n>__<description>.sql`). Never edit a migration that has already been applied; add a new one. Hibernate only validates (`ddl-auto=validate`).
+  - Enums are stored as strings (`@Enumerated(STRING)`), never ordinals. Money is `DECIMAL(10,2)`.
+  - H2 console only under the `local` profile.
 - Constructor injection only.
 - Time only from the injected `Clock` bean. Never call `now()` without it.
+- Timestamps are UTC `Instant`s. Calendar-date rules (e.g. pet age) use today's date in the business zone (`quote.business-zone`, default `America/New_York`), never the JVM default zone.
 - Money is `BigDecimal` (create from String, compare with `compareTo`, max 2 decimals), never `double`.
 - IDs are server-generated UUIDs.
 
@@ -26,7 +32,9 @@ Java 21 · Spring Boot 4 · Maven wrapper.
 ## Testing
 - Before coding, restate the acceptance criteria and map each one to a test.
 - Write the failing test first, then the minimal code to pass it.
-- Service: plain JUnit 5 + AssertJ, fixed `Clock`, real in-memory repository, no Spring context, no mocks.
+- Service: plain JUnit 5 + AssertJ, fixed `Clock`, a test-only in-memory `QuoteRepository` fake (`ConcurrentHashMap`), no Spring context, no mocks.
+- Repository: `@DataJpaTest` against in-memory H2 with the Flyway migrations applied. Cover the full mapping round trip (money scale, enums as strings, timestamps) and concurrent writes.
+- Tests never touch the `./data` file database: Surefire points `spring.datasource.url` at in-memory H2.
 - Controller: `@WebMvcTest` with the service mocked. Assert status, headers and body.
 - End-to-end: `@SpringBootTest` + MockMvc for the main flows only.
 - Use `@ParameterizedTest` for input-validation matrices.
